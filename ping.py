@@ -81,6 +81,7 @@ class Monitor:
         self.cursor.execute("TRUNCATE ping_ip_addr_status")
         self.conn.commit()
         self.cursor.executemany("INSERT INTO ping_ip_addr_status (ip_addr, is_ok, create_time) VALUES (%s, %s, %s)", ((i['ip_addr'], i['is_ok'], self.time) for i in self.monitor_info))
+        self.cursor.executemany("INSERT INTO ping_ip_addr_status_history (ip_addr, is_ok, create_time) VALUES (%s, %s, %s)", ((i['ip_addr'], i['is_ok'], self.time) for i in self.monitor_info))
         self.conn.commit()
 
     def __event_store(self):
@@ -104,7 +105,7 @@ class Monitor:
         self.__event_alert()
 
     def __event_alert(self):
-        ping_alert(self.current_failed, self.ignored_events)
+        ping_alert(self.current_failed, self.ignored_events, self.gone_events)
 
     def __create_event(self):
         self.cursor.executemany("INSERT INTO ping_failed_event (ip_addr, create_time, update_time) VALUES (%s, %s, %s)", ((ip_addr, self.time, self.time) for ip_addr in self.new_events))
@@ -112,7 +113,7 @@ class Monitor:
 
     def __update_event(self):
         for i in self.contin_events:
-            self.cursor.execute("UPDATE ping_failed_event SET update_time = %s", (self.time, ))
+            self.cursor.execute("UPDATE ping_failed_event SET update_time = %s WHERE ip_addr = %s", (self.time, i))
         self.conn.commit()
 
     def __delete_event(self):
